@@ -21,9 +21,9 @@ if uploaded_file:
     # ✅ Appel LLM ou mock
     if st.button("Suggérer des KPIs 📈"):
         with st.spinner("Analyse des données en cours... 🤖"):
-        sample_data = df.head(10).to_csv(index=False)
+            sample_data = df.head(10).to_csv(index=False)
 
-        prompt = f"""Voici un extrait de données au format CSV :
+            prompt = f"""Voici un extrait de données au format CSV :
 
 {sample_data}
 
