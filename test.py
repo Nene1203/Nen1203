@@ -20,27 +20,38 @@ if uploaded_file:
 
     # ✅ Appel LLM ou mock
     if st.button("Suggérer des KPIs 📈"):
-        with st.spinner("Analyse du fichier avec LLM..."):
-            prompt = f"""
-Voici un extrait de données sous forme de tableau :
+        with st.spinner("Analyse des données en cours... 🤖"):
+        sample_data = df.head(10).to_csv(index=False)
 
-{df.head(10).to_markdown()}
+        prompt = f"""Voici un extrait de données au format CSV :
 
-Quels sont les KPIs intéressants à calculer ? Propose des types de graphiques pertinents.
-"""
-            try:
-                response = openai.ChatCompletion.create(
-                    model=GPT_MODEL,
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3
-                )
-                kpis = response.choices[0].message["content"]
-            except:
-                kpis = "Exemple (mode mock) :\n- Total des ventes\n- Ventes par produit\n- Évolution des ventes par mois"
+{sample_data}
 
-        st.subheader("💡 Suggestions de KPIs")
-        st.markdown(kpis)
+Propose 5 KPIs pertinents à calculer à partir de ces données.
+Pour chaque KPI, donne :
+- un titre clair,
+- une description,
+- un exemple de valeur ou de formule,
+- un type de graphique adapté (barres, camembert, lignes, histogramme, etc.)."""
 
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "Tu es un expert en BI et dashboards interactifs."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=800
+            )
+
+            kpis = response["choices"][0]["message"]["content"]
+            st.success("✅ Analyse terminée")
+            st.markdown("### 📊 KPIs suggérés par GPT-4 :")
+            st.markdown(kpis)
+
+        except Exception as e:
+            st.error(f"❌ Une erreur est survenue : {e}")
     # 📊 Génération fichier Excel
     if st.button("Générer fichier Excel avec Dashboard 🔄"):
         output = io.BytesIO()
