@@ -4,8 +4,8 @@ from openai import OpenAI
 import io
 import xlsxwriter
 
-# 🧠 Paramètres GPT (remplace par ta clé)
-OpenAI.api_key = st.secrets.get("OPENAI_API_KEY", "sk-...")
+# 🧠 Instanciation du client OpenAI
+client = OpenAI(api_key=st.secrets.get("OPENAI_API_KEY", "sk-..."))
 GPT_MODEL = "gpt-4"
 
 st.title("POC SaaS : Générateur de Dashboard Excel Automatisé 📊")
@@ -18,7 +18,7 @@ if uploaded_file:
     st.subheader("Aperçu des données")
     st.dataframe(df.head(20))
 
-    # ✅ Appel LLM ou mock
+    # ✅ Appel LLM
     if st.button("Suggérer des KPIs 📈"):
         with st.spinner("Analyse des données en cours... 🤖"):
             sample_data = df.head(10).to_csv(index=False)
@@ -34,24 +34,25 @@ Pour chaque KPI, donne :
 - un exemple de valeur ou de formule,
 - un type de graphique adapté (barres, camembert, lignes, histogramme, etc.)."""
 
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "Tu es un expert en BI et dashboards interactifs."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=800
-            )
+            try:
+                response = client.chat.completions.create(
+                    model=GPT_MODEL,
+                    messages=[
+                        {"role": "system", "content": "Tu es un expert en BI et dashboards interactifs."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.7,
+                    max_tokens=800
+                )
 
-            kpis = response["choices"][0]["message"]["content"]
-            st.success("✅ Analyse terminée")
-            st.markdown("### 📊 KPIs suggérés par GPT-4 :")
-            st.markdown(kpis)
+                kpis = response.choices[0].message.content
+                st.success("✅ Analyse terminée")
+                st.markdown("### 📊 KPIs suggérés par GPT-4 :")
+                st.markdown(kpis)
 
-        except Exception as e:
-            st.error(f"❌ Une erreur est survenue : {e}")
+            except Exception as e:
+                st.error(f"❌ Une erreur est survenue : {e}")
+
     # 📊 Génération fichier Excel
     if st.button("Générer fichier Excel avec Dashboard 🔄"):
         output = io.BytesIO()
@@ -82,4 +83,3 @@ Pour chaque KPI, donne :
             file_name="dashboard_generé.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
