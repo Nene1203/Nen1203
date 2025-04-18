@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
-import openai
+from openai import OpenAI
 import io
 import xlsxwriter
 
 # 🧠 Paramètres GPT (remplace par ta clé)
-openai.api_key = st.secrets.get("OPENAI_API_KEY", "sk-...")
+OpenAI.api_key = st.secrets.get("OPENAI_API_KEY", "sk-...")
 GPT_MODEL = "gpt-4"
 
 st.title("POC SaaS : Générateur de Dashboard Excel Automatisé 📊")
