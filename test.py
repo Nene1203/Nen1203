@@ -62,35 +62,50 @@ if uploaded_file:
     st.subheader("Aperçu des données")
     st.dataframe(df.head(10))
 
-    # --- Détection du domaine ---
+    # --- Détection automatique du domaine ---
     columns = [col.lower() for col in df.columns]
     if any(x in columns for x in ["client", "produit", "vente", "chiffre d'affaires", "commande"]):
-        domaine = "commercial"
+        domaine_detecte = "commercial"
     elif any(x in columns for x in ["email", "campagne", "clics", "impressions", "trafic"]):
-        domaine = "marketing"
+        domaine_detecte = "marketing"
     elif any(x in columns for x in ["entrepôt", "stock", "livraison", "réception"]):
-        domaine = "logistique"
+        domaine_detecte = "logistique"
     elif any(x in columns for x in ["patient", "date de naissance", "maladie", "décès"]):
-        domaine = "santé"
+        domaine_detecte = "santé"
     else:
-        domaine = "général"
+        domaine_detecte = "général"
 
-    contexte = {
-        "commercial": "Données de ventes d'une entreprise commerciale.",
-        "marketing": "Données de campagnes marketing.",
-        "logistique": "Données de gestion de stock et livraisons.",
-        "santé": "Données médicales de patients.",
-        "général": "Données diverses sans domaine spécifique."
-    }.get(domaine, "Données diverses sans domaine spécifique.")
+    st.subheader(f"🔎 Domaine détecté automatiquement : **{domaine_detecte.capitalize()}**")
 
-    if st.button("Suggérer des KPIs 📈"):
-        with st.spinner("Analyse des données et historique en cours..."):
-            sample_data = df.sample(min(len(df), 20), random_state=42).to_csv(index=False)
+    confirmation = st.radio("Est-ce correct ?", ("Oui", "Non"))
 
-            historique = load_prompts_from_airtable()
-            historique_contextuel = "\n".join(historique[-5:])
+    if confirmation == "Oui":
+        domaine = domaine_detecte
+    else:
+        domaine = st.selectbox(
+            "Quel est le bon domaine ?",
+            options=["commercial", "marketing", "logistique", "santé", "ressources humaines", "finance", "autre"]
+        )
 
-            prompt_final = f"""
+    if confirmation:
+        contexte = {
+            "commercial": "Données de ventes d'une entreprise commerciale.",
+            "marketing": "Données de campagnes marketing et publicitaires.",
+            "logistique": "Données de gestion de stocks, livraisons et entrepôts.",
+            "santé": "Données médicales concernant des patients.",
+            "ressources humaines": "Données de gestion RH et employés.",
+            "finance": "Données financières et comptables.",
+            "autre": "Données diverses sans domaine spécifique."
+        }.get(domaine, "Données diverses sans domaine spécifique.")
+
+        if st.button("Suggérer des KPIs 📈"):
+            with st.spinner("Analyse des données et historique en cours..."):
+                sample_data = df.sample(min(len(df), 20), random_state=42).to_csv(index=False)
+
+                historique = load_prompts_from_airtable()
+                historique_contextuel = "\n".join(historique[-5:])
+
+                prompt_final = f"""
 Voici un extrait de données :
 {sample_data}
 
@@ -105,18 +120,18 @@ Propose 5 KPIs pertinents pour ces données :
 - un exemple de valeur ou formule
 - un type de graphique adapté
 """
-            try:
-                response = client.chat.completions.create(
-                    model="gpt-4",
-                    messages=[{"role": "user", "content": prompt_final}],
-                    temperature=0.5,
-                    max_tokens=800
-                )
-                kpis = response.choices[0].message.content.split("\n\n")
-                st.session_state.kpis = kpis
-                st.success("✅ KPIs générés avec succès !")
-            except Exception as e:
-                st.error(f"Erreur GPT : {e}")
+                try:
+                    response = client.chat.completions.create(
+                        model="gpt-4",
+                        messages=[{"role": "user", "content": prompt_final}],
+                        temperature=0.5,
+                        max_tokens=800
+                    )
+                    kpis = response.choices[0].message.content.split("\n\n")
+                    st.session_state.kpis = kpis
+                    st.success("✅ KPIs générés avec succès !")
+                except Exception as e:
+                    st.error(f"Erreur GPT : {e}")
 
 # --- Interaction avec l'utilisateur ---
 if "kpis" in st.session_state:
