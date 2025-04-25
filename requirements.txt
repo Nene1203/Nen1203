@@ -4,3 +4,4 @@ pandas
 xlsxwriter
 openpyxl
 tabulate
+python-dotenv
