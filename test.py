@@ -141,6 +141,28 @@ if "kpis" in st.session_state:
         if st.checkbox(kpi):
             selected_kpis.append(kpi)
 
+    if selected_kpis:
+        st.subheader("🚀 KPIs sélectionnés :")
+        for kpi in selected_kpis:
+            st.markdown(f"- {kpi}")
+
+        if st.button("📊 Dashboard Preview"):
+            st.subheader("📊 Aperçu du Dashboard basé sur ta sélection")
+
+            # Mini sommaire cliquable
+            st.markdown("### 📑 Sommaire des KPIs :")
+            for idx, kpi in enumerate(selected_kpis, 1):
+                st.markdown(f"- [{kpi.splitlines()[0]}](#kpi-{idx})")
+
+            st.markdown("---")
+
+            cols = st.columns(3)
+            for idx, kpi in enumerate(selected_kpis):
+                with cols[idx % 3]:
+                    st.markdown(f"<h4 id='kpi-{idx+1}'>KPI {idx+1}</h4>", unsafe_allow_html=True)
+                    st.markdown(kpi)
+                    st.divider()
+
     st.subheader("💬 Pose une nouvelle question à l'IA (améliorer / filtrer les KPIs) :")
     user_prompt = st.text_area("Ta question :")
 
@@ -160,26 +182,28 @@ Voici l'historique récent des demandes :
 Nouvelle demande de l'utilisateur :
 {user_prompt}
 
-Merci d'ajouter ou d'adapter des KPIs pertinents à la liste existante sans supprimer les anciens, et de renvoyer l'ensemble complet et mis à jour.
-Pour chaque KPI :
+Merci d'ajouter ou d'adapter des KPIs pertinents à la liste existante sans supprimer les anciens.
+Ne te limite pas à 5 KPIs, ajoute autant que nécessaire selon la demande.
+Pour chaque KPI ajouté :
 - un titre clair
 - une description
 - un exemple de valeur ou formule
 - un type de graphique adapté.
+Retourne toute la liste complète des KPIs mise à jour.
 """
             try:
                 response_update = client.chat.completions.create(
                     model="gpt-4",
                     messages=[{"role": "user", "content": prompt_final}],
                     temperature=0.5,
-                    max_tokens=1200
+                    max_tokens=2000
                 )
                 st.session_state.kpis = response_update.choices[0].message.content.split("\n\n")
                 st.success("✅ Liste de KPIs mise à jour avec succès !")
-            except Exception as e:
-                st.error(f"Erreur GPT : {e}")
 
-    if selected_kpis:
-        st.subheader("🚀 KPIs sélectionnés :")
-        for kpi in selected_kpis:
-            st.markdown(f"- {kpi}")
+                st.subheader("📊 Liste actuelle des KPIs :")
+                for idx, kpi in enumerate(st.session_state.kpis, 1):
+                    st.markdown(f"**{idx}.** {kpi}")
+
+            except Exception as e:
+                st.error(f"❌ Une erreur est survenue : {e}")
