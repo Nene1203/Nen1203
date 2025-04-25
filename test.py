@@ -136,24 +136,31 @@ if "kpis" in st.session_state:
             historique_contextuel = "\n".join(historique[-5:])
 
             prompt_final = f"""
-Voici l'historique récent :
+Voici la liste actuelle des KPIs :
+{chr(10).join(st.session_state.kpis)}
+
+Voici l'historique récent des demandes :
 {historique_contextuel}
 
-Nouvelle question :
+Nouvelle demande de l'utilisateur :
 {user_prompt}
 
-Merci de mettre à jour la liste des KPIs de manière cohérente.
+Merci d'ajouter ou d'adapter des KPIs pertinents à la liste existante sans supprimer les anciens, et de renvoyer l'ensemble complet et mis à jour.
+Pour chaque KPI :
+- un titre clair
+- une description
+- un exemple de valeur ou formule
+- un type de graphique adapté.
 """
             try:
                 response_update = client.chat.completions.create(
                     model="gpt-4",
                     messages=[{"role": "user", "content": prompt_final}],
                     temperature=0.5,
-                    max_tokens=800
+                    max_tokens=1200
                 )
-                nouveaux_kpis = response_update.choices[0].message.content.split("\n\n")
-                st.session_state.kpis.extend(nouveaux_kpis)
-                st.success("✅ Nouveaux KPIs ajoutés à la liste !")
+                st.session_state.kpis = response_update.choices[0].message.content.split("\n\n")
+                st.success("✅ Liste de KPIs mise à jour avec succès !")
             except Exception as e:
                 st.error(f"Erreur GPT : {e}")
 
