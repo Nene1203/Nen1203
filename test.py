@@ -146,22 +146,27 @@ if "kpis" in st.session_state:
         for kpi in selected_kpis:
             st.markdown(f"- {kpi}")
 
-        if st.button("📊 Dashboard Preview"):
-            st.subheader("📊 Aperçu du Dashboard basé sur ta sélection")
+        if st.button("✅ Valider ma sélection de KPIs"):
+            st.session_state.kpis_valides = selected_kpis
+            st.success("✅ Sélection validée ! Prêt pour l'aperçu du Dashboard.")
 
-            # Mini sommaire cliquable
-            st.markdown("### 📑 Sommaire des KPIs :")
-            for idx, kpi in enumerate(selected_kpis, 1):
-                st.markdown(f"- [{kpi.splitlines()[0]}](#kpi-{idx})")
+if "kpis_valides" in st.session_state:
+    if st.button("📊 Dashboard Preview"):
+        st.subheader("📊 Aperçu du Dashboard basé sur ta sélection")
 
-            st.markdown("---")
+        # Mini sommaire cliquable
+        st.markdown("### 📑 Sommaire des KPIs :")
+        for idx, kpi in enumerate(st.session_state.kpis_valides, 1):
+            st.markdown(f"- [{kpi.splitlines()[0]}](#kpi-{idx})")
 
-            cols = st.columns(3)
-            for idx, kpi in enumerate(selected_kpis):
-                with cols[idx % 3]:
-                    st.markdown(f"<h4 id='kpi-{idx+1}'>KPI {idx+1}</h4>", unsafe_allow_html=True)
-                    st.markdown(kpi)
-                    st.divider()
+        st.markdown("---")
+
+        cols = st.columns(3)
+        for idx, kpi in enumerate(st.session_state.kpis_valides):
+            with cols[idx % 3]:
+                st.markdown(f"<h4 id='kpi-{idx+1}'>KPI {idx+1}</h4>", unsafe_allow_html=True)
+                st.markdown(kpi)
+                st.divider()
 
     st.subheader("💬 Pose une nouvelle question à l'IA (améliorer / filtrer les KPIs) :")
     user_prompt = st.text_area("Ta question :")
