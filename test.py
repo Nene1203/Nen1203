@@ -178,34 +178,53 @@ if "kpis_valides" in st.session_state:
         with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
             df.to_excel(writer, sheet_name='Données', index=False)
             workbook = writer.book
-            (max_row, max_col) = df.shape
-            data_range = f'Données!$A$1:${chr(65 + max_col - 1)}${max_row + 1}'
+
+            header_format = workbook.add_format({
+                'bold': True,
+                'text_wrap': True,
+                'valign': 'middle',
+                'align': 'center',
+                'bg_color': '#DCE6F1',
+                'border': 1
+            })
+
+            cell_format = workbook.add_format({
+                'valign': 'middle',
+                'align': 'center',
+                'border': 1
+            })
 
             for idx, kpi in enumerate(st.session_state.kpis_valides, start=1):
-                pivot_sheet_name = f"KPI_{idx}"
-                pivot_sheet = workbook.add_worksheet(pivot_sheet_name)
+                sheet_name = f"KPI_{idx}"
+                worksheet = workbook.add_worksheet(sheet_name)
 
-                workbook.add_pivot_table({
-                    'data': data_range,
-                    'rows': [0],
-                    'columns': [],
-                    'filters': [],
-                    'values': [{'field': 1, 'function': 'sum', 'name': 'Somme Valeur'}],
-                    'destination': f'{pivot_sheet_name}!A3'
-                })
+                worksheet.write('A1', 'Catégorie', header_format)
+                worksheet.write('B1', 'Valeur', header_format)
+                worksheet.write('A2', 'Exemple A', cell_format)
+                worksheet.write('B2', 100, cell_format)
+                worksheet.write('A3', 'Exemple B', cell_format)
+                worksheet.write('B3', 200, cell_format)
+
+                worksheet.set_column('A:A', 20)
+                worksheet.set_column('B:B', 15)
 
                 chart = workbook.add_chart({'type': 'column'})
                 chart.add_series({
-                    'categories': f'={pivot_sheet_name}!$A$4:$A$10',
-                    'values':     f'={pivot_sheet_name}!$B$4:$B$10',
-                    'name':       f'KPI {idx}'
+                    'name':       f'KPI {idx}',
+                    'categories': f'={sheet_name}!$A$2:$A$3',
+                    'values':     f'={sheet_name}!$B$2:$B$3',
+                    'data_labels': {'value': True}
                 })
-                pivot_sheet.insert_chart('G3', chart)
+                chart.set_title({'name': f'Dashboard KPI {idx}'})
+                chart.set_x_axis({'name': 'Catégories'})
+                chart.set_y_axis({'name': 'Valeur'})
+
+                worksheet.insert_chart('D2', chart)
 
         st.download_button(
             label="📥 Télécharger le Dashboard Excel Ultra-Pro",
             data=output.getvalue(),
-            file_name="dashboard_kpis_pivot.xlsx",
+            file_name="dashboard_kpis_ultra_premium.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
