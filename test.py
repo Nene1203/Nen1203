@@ -11,6 +11,64 @@ from dotenv import load_dotenv
 # --- Charger les variables d'environnement ou secrets ---
 load_dotenv()
 
+# --- Gestion du Thème (Dark / Light Mode) ---
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"  # Dark mode par défaut
+
+theme_toggle = st.toggle("🌑 / ☀️ Changer de mode", value=(st.session_state.theme == "dark"))
+
+if theme_toggle:
+    st.session_state.theme = "dark"
+else:
+    st.session_state.theme = "light"
+
+# --- Application du style selon le thème ---
+if st.session_state.theme == "dark":
+    st.markdown("""
+    <style>
+        body {
+            background-color: #121212;
+            color: #F1F1F1;
+        }
+        .stApp {
+            background-color: #121212;
+            color: #F1F1F1;
+        }
+        .css-1d391kg, .css-1cpxqw2 {
+            background-color: #1F1F1F;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        button {
+            background-color: #2980b9;
+            color: white;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+    <style>
+        body {
+            background-color: #FFFFFF;
+            color: #000000;
+        }
+        .stApp {
+            background-color: #FFFFFF;
+            color: #000000;
+        }
+        .css-1d391kg, .css-1cpxqw2 {
+            background-color: #F9F9F9;
+            border-radius: 10px;
+            padding: 15px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- Configuration des clés API ---
 airtable_api_key = st.secrets["airtable"]["api_key"] if "airtable" in st.secrets else os.getenv("AIRTABLE_API_KEY")
 airtable_base_id = st.secrets["airtable"]["base_id"] if "airtable" in st.secrets else os.getenv("AIRTABLE_BASE_ID")
 airtable_table_name = st.secrets["airtable"].get("table_name", "Prompts") if "airtable" in st.secrets else os.getenv("AIRTABLE_TABLE_NAME")
@@ -136,7 +194,7 @@ Propose 5 KPIs pertinents pour ces données :
                 except Exception as e:
                     st.error(f"Erreur GPT : {e}")
 
-# --- Interaction avec l'utilisateur ---
+# --- Interaction utilisateur ---
 if "kpis" in st.session_state:
     st.subheader("✅ Sélectionne les KPIs pour ton Dashboard :")
     selected_kpis = []
@@ -156,9 +214,9 @@ if "kpis" in st.session_state:
 if "kpis_valides" in st.session_state:
     if st.button("📊 Dashboard Preview"):
         st.session_state.dashboard_ready = True
-        st.subheader("📊 Aperçu du Dashboard basé sur ta sélection")
+        st.subheader("📑 Dashboard Preview élégant")
 
-        st.markdown("### 📑 Sommaire des KPIs :")
+        st.markdown("### Sommaire 📚")
         for idx, kpi in enumerate(st.session_state.kpis_valides, 1):
             st.markdown(f"- [{kpi.splitlines()[0]}](#kpi-{idx})")
 
@@ -167,59 +225,64 @@ if "kpis_valides" in st.session_state:
         cols = st.columns(3)
         for idx, kpi in enumerate(st.session_state.kpis_valides):
             with cols[idx % 3]:
-                st.markdown(f"<h4 id='kpi-{idx+1}'>KPI {idx+1}</h4>", unsafe_allow_html=True)
-                st.markdown(kpi)
-                st.divider()
+                st.markdown(f"<div style='background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>"
+                            f"<h4 id='kpi-{idx+1}' style='color: #2c3e50;'>📊 KPI {idx+1}</h4>"
+                            f"<p style='font-size: 15px; color: #34495e;'>{kpi}</p>"
+                            f"</div>", unsafe_allow_html=True)
 
     if st.session_state.dashboard_ready:
         st.subheader("📥 Exporte ton Dashboard Excel ici")
-        output = io.BytesIO()
 
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, sheet_name='Données', index=False)
-            workbook = writer.book
+        with st.spinner('🔄 Génération de ton fichier Excel... Patiente quelques secondes...'):
+            output = io.BytesIO()
 
-            header_format = workbook.add_format({
-                'bold': True,
-                'text_wrap': True,
-                'valign': 'middle',
-                'align': 'center',
-                'bg_color': '#DCE6F1',
-                'border': 1
-            })
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, sheet_name='Données', index=False)
+                workbook = writer.book
 
-            cell_format = workbook.add_format({
-                'valign': 'middle',
-                'align': 'center',
-                'border': 1
-            })
-
-            for idx, kpi in enumerate(st.session_state.kpis_valides, start=1):
-                sheet_name = f"KPI_{idx}"
-                worksheet = workbook.add_worksheet(sheet_name)
-
-                worksheet.write('A1', 'Catégorie', header_format)
-                worksheet.write('B1', 'Valeur', header_format)
-                worksheet.write('A2', 'Exemple A', cell_format)
-                worksheet.write('B2', 100, cell_format)
-                worksheet.write('A3', 'Exemple B', cell_format)
-                worksheet.write('B3', 200, cell_format)
-
-                worksheet.set_column('A:A', 20)
-                worksheet.set_column('B:B', 15)
-
-                chart = workbook.add_chart({'type': 'column'})
-                chart.add_series({
-                    'name':       f'KPI {idx}',
-                    'categories': f'={sheet_name}!$A$2:$A$3',
-                    'values':     f'={sheet_name}!$B$2:$B$3',
-                    'data_labels': {'value': True}
+                header_format = workbook.add_format({
+                    'bold': True,
+                    'text_wrap': True,
+                    'valign': 'middle',
+                    'align': 'center',
+                    'bg_color': '#DCE6F1',
+                    'border': 1
                 })
-                chart.set_title({'name': f'Dashboard KPI {idx}'})
-                chart.set_x_axis({'name': 'Catégories'})
-                chart.set_y_axis({'name': 'Valeur'})
 
-                worksheet.insert_chart('D2', chart)
+                cell_format = workbook.add_format({
+                    'valign': 'middle',
+                    'align': 'center',
+                    'border': 1
+                })
+
+                for idx, kpi in enumerate(st.session_state.kpis_valides, start=1):
+                    sheet_name = f"KPI_{idx}"
+                    worksheet = workbook.add_worksheet(sheet_name)
+
+                    worksheet.write('A1', df.columns[0], header_format)
+                    worksheet.write('B1', df.columns[1], header_format)
+
+                    for row in range(min(10, len(df))):
+                        worksheet.write(row + 1, 0, str(df.iloc[row, 0]), cell_format)
+                        worksheet.write(row + 1, 1, df.iloc[row, 1], cell_format)
+
+                    worksheet.set_column('A:A', 20)
+                    worksheet.set_column('B:B', 15)
+
+                    chart = workbook.add_chart({'type': 'column'})
+                    chart.add_series({
+                        'name':       f'KPI {idx}',
+                        'categories': f'={sheet_name}!$A$2:$A${min(11, len(df)+1)}',
+                        'values':     f'={sheet_name}!$B$2:$B${min(11, len(df)+1)}',
+                        'data_labels': {'value': True}
+                    })
+                    chart.set_title({'name': f'Dashboard KPI {idx}'})
+                    chart.set_x_axis({'name': df.columns[0]})
+                    chart.set_y_axis({'name': df.columns[1]})
+
+                    worksheet.insert_chart('D2', chart)
+
+        st.success("✅ Fichier Excel généré avec succès !")
 
         st.download_button(
             label="📥 Télécharger le Dashboard Excel Ultra-Pro",
@@ -227,48 +290,3 @@ if "kpis_valides" in st.session_state:
             file_name="dashboard_kpis_ultra_premium.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-    st.subheader("💬 Pose une nouvelle question à l'IA (améliorer / filtrer les KPIs) :")
-    user_prompt = st.text_area("Ta question :")
-
-    if st.button("Envoyer ma demande 🧠"):
-        if user_prompt:
-            save_prompt_to_airtable(user_prompt)
-            historique = load_prompts_from_airtable()
-            historique_contextuel = "\n".join(historique[-5:])
-
-            prompt_final = f"""
-Voici la liste actuelle des KPIs :
-{chr(10).join(st.session_state.kpis)}
-
-Voici l'historique récent des demandes :
-{historique_contextuel}
-
-Nouvelle demande de l'utilisateur :
-{user_prompt}
-
-Merci d'ajouter ou d'adapter des KPIs pertinents à la liste existante sans supprimer les anciens.
-Ne te limite pas à 5 KPIs, ajoute autant que nécessaire selon la demande.
-Pour chaque KPI ajouté :
-- un titre clair
-- une description
-- un exemple de valeur ou formule
-- un type de graphique adapté.
-Retourne toute la liste complète des KPIs mise à jour.
-"""
-            try:
-                response_update = client.chat.completions.create(
-                    model="gpt-4",
-                    messages=[{"role": "user", "content": prompt_final}],
-                    temperature=0.5,
-                    max_tokens=2000
-                )
-                st.session_state.kpis = response_update.choices[0].message.content.split("\n\n")
-                st.success("✅ Liste de KPIs mise à jour avec succès !")
-
-                st.subheader("📊 Liste actuelle des KPIs :")
-                for idx, kpi in enumerate(st.session_state.kpis, 1):
-                    st.markdown(f"**{idx}.** {kpi}")
-
-            except Exception as e:
-                st.error(f"❌ Une erreur est survenue : {e}")
