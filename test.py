@@ -6,7 +6,6 @@ import io
 import os
 import requests
 import datetime
-import xlwings as xw
 from dotenv import load_dotenv
 
 # --- Config Streamlit ---
@@ -24,51 +23,49 @@ def footer_premium():
         </div>
     """, unsafe_allow_html=True)
 
-def generate_vba_code_from_kpis(selected_kpis):
-    vba_code = "Sub CreerDashboard()\n\n"
-    vba_code += "    Dim wsData As Worksheet\n"
-    vba_code += "    Dim wsPivot As Worksheet\n"
-    vba_code += "    Dim pvtCache As PivotCache\n"
-    vba_code += "    Dim pvt As PivotTable\n"
-    vba_code += "    Dim chartObj As ChartObject\n\n"
-    vba_code += "    Set wsData = ThisWorkbook.Sheets(\"Données\")\n"
-    vba_code += "    Set wsPivot = ThisWorkbook.Sheets.Add\n"
-    vba_code += "    wsPivot.Name = \"Dashboard\"\n\n"
-    vba_code += "    Set pvtCache = ThisWorkbook.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=wsData.UsedRange)\n\n"
+# --- Nouvelle fonction : création Dashboard Excel (.xlsx) sans VBA ---
+def create_xlsx_dashboard(df, selected_kpis):
+    import xlsxwriter
 
-    for idx, kpi in enumerate(selected_kpis, 1):
-        pivot_name = f"TCD_KPI_{idx}"
-        chart_title = f"KPI {idx} - {kpi.splitlines()[0][:30]}"
-        vba_code += f"    ' --- {chart_title} ---\n"
-        vba_code += f"    Set pvt = pvtCache.CreatePivotTable(TableDestination:=wsPivot.Cells({3 + idx * 15}, 1), TableName:=\"{pivot_name}\")\n"
-        vba_code += f"    Set chartObj = wsPivot.ChartObjects.Add(Left:=300, Width:=400, Top:={50 + idx * 300}, Height:=250)\n"
-        vba_code += f"    With chartObj.Chart\n"
-        vba_code += f"        .SetSourceData Source:=pvt.TableRange2\n"
-        vba_code += f"        .ChartType = xlColumnClustered\n"
-        vba_code += f"        .HasTitle = True\n"
-        vba_code += f"        .ChartTitle.Text = \"{chart_title}\"\n"
-        vba_code += f"    End With\n\n"
+    output = io.BytesIO()
 
-    vba_code += "End Sub\n"
-    return vba_code
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        # Onglet Données
+        df.to_excel(writer, sheet_name='Données', index=False)
+        workbook = writer.book
 
-def create_xlsm_dashboard(df, selected_kpis, output_xlsm_path):
-    temp_xlsx = output_xlsm_path.replace('.xlsm', '.xlsx')
-    df.to_excel(temp_xlsx, sheet_name='Données', index=False)
-    app = xw.App(visible=False)
-    wb = app.books.open(temp_xlsx)
-    wb.save(output_xlsm_path)
-    vba_code = generate_vba_code_from_kpis(selected_kpis)
-    wb.api.VBProject.VBComponents.Add(1).CodeModule.AddFromString(vba_code)
-    wb.api.VBProject.VBComponents("ThisWorkbook").CodeModule.AddFromString("""
-Private Sub Workbook_Open()
-    Call CreerDashboard
-End Sub
-""")
-    wb.save()
-    wb.close()
-    app.quit()
-    os.remove(temp_xlsx)
+        # Onglet Résumé KPIs
+        worksheet_summary = workbook.add_worksheet("KPIs Résumés")
+
+        # Ecrire les KPIs
+        worksheet_summary.write('A1', 'KPI')
+        worksheet_summary.write('B1', 'Description')
+
+        for idx, kpi in enumerate(selected_kpis, start=2):
+            title = kpi.splitlines()[0] if kpi else f"KPI {idx-1}"
+            description = "Basé sur vos données chargées."
+            worksheet_summary.write(f"A{idx}", title)
+            worksheet_summary.write(f"B{idx}", description)
+
+        worksheet_summary.set_column('A:A', 40)
+        worksheet_summary.set_column('B:B', 60)
+
+        # Créer un graphique
+        worksheet_chart = workbook.add_worksheet("Graphiques")
+        chart = workbook.add_chart({'type': 'column'})
+        chart.add_series({
+            'categories': '=KPIs Résumés!$A$2:$A$6',
+            'values': '=KPIs Résumés!$B$2:$B$6',
+            'name': 'KPIs',
+            'data_labels': {'value': True}
+        })
+        chart.set_title({'name': 'Distribution des KPIs'})
+        chart.set_x_axis({'name': 'Indicateurs'})
+        chart.set_y_axis({'name': 'Scores fictifs'})
+        worksheet_chart.insert_chart('B2', chart)
+
+    output.seek(0)
+    return output
 
 # --- OpenAI Client ---
 openai.api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
@@ -132,17 +129,15 @@ def page_accueil_et_generation():
                 if st.checkbox(kpi):
                     selected_kpis.append(kpi)
 
-            if selected_kpis and st.button("📥 Exporter Dashboard Excel"):
-                output_path = "dashboard_auto.xlsm"
-                create_xlsm_dashboard(df, selected_kpis, output_path)
-                save_project_to_airtable("Projet_" + datetime.datetime.now().strftime("%Y%m%d_%H%M"), output_path)
-                with open(output_path, "rb") as file:
-                    st.download_button(
-                        label="📥 Télécharger le Dashboard Excel",
-                        data=file,
-                        file_name="dashboard_kpi_ultra.xlsm",
-                        mime="application/vnd.ms-excel.sheet.macroEnabled.12"
-                    )
+            if selected_kpis and st.button("📥 Exporter Dashboard Excel (.xlsx)"):
+                excel_file = create_xlsx_dashboard(df, selected_kpis)
+                save_project_to_airtable("Projet_" + datetime.datetime.now().strftime("%Y%m%d_%H%M"), "dashboard_kpis_auto.xlsx")
+                st.download_button(
+                    label="📥 Télécharger le Dashboard Excel",
+                    data=excel_file,
+                    file_name="dashboard_kpis_auto.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
 def page_historique_projets():
     st.title("📚 Historique des projets créés")
