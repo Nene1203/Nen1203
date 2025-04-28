@@ -2,18 +2,66 @@ import streamlit as st
 import pandas as pd
 import openai
 import io
-import xlsxwriter
 import os
 import requests
 import datetime
+import xlwings as xw
 from dotenv import load_dotenv
+
+# --- Animation subtile pour page d'accueil ---
+st.markdown("""
+    <style>
+        @keyframes zoomFade {
+            0% {transform: scale(0.9); opacity: 0;}
+            100% {transform: scale(1); opacity: 1;}
+        }
+        h1 {
+            animation: zoomFade 1s ease-in-out;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- Pied de page premium ---
+def footer_premium():
+    st.markdown("""
+        <hr style="margin-top:50px;margin-bottom:10px;">
+        <div style="text-align: center; color: gray;">
+            <p>© 2025 Nelson Telep - Tous droits réservés 🚀</p>
+        </div>
+    """, unsafe_allow_html=True)
 
 # --- Charger les variables d'environnement ou secrets ---
 load_dotenv()
 
+# --- Page d'accueil Premium ---
+def page_accueil_premium():
+    st.markdown("""
+        <div style='text-align: center; margin-bottom: 50px;'>
+            <h1 style='font-size: 50px; color: #3498db;'>🚀 SaaS KPI Generator</h1>
+            <p style='font-size: 20px; color: gray;'>Automatisez vos dashboards comme jamais auparavant</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.image("https://images.unsplash.com/photo-1612832021092-6cc8fb0b5fb3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80", use_column_width=True)
+
+    st.markdown("""
+        <div style='margin-top: 50px;'>
+            <h2 style='color: #2c3e50;'>Pourquoi choisir notre solution ?</h2>
+            <ul style='font-size:18px;'>
+                <li>🚀 Générez automatiquement vos KPIs stratégiques</li>
+                <li>📊 Créez des dashboards Excel ultra professionnels sans coder</li>
+                <li>🤖 Personnalisez vos indicateurs grâce à l'intelligence artificielle</li>
+            </ul>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("<h3 style='text-align:center;'>Commencez maintenant 🚀</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>Chargez votre premier fichier Excel ou CSV pour découvrir la magie ✨</p>", unsafe_allow_html=True)
+
 # --- Gestion du Thème (Dark / Light Mode) ---
 if "theme" not in st.session_state:
-    st.session_state.theme = "dark"  # Dark mode par défaut
+    st.session_state.theme = "dark"
 
 theme_toggle = st.toggle("🌑 / ☀️ Changer de mode", value=(st.session_state.theme == "dark"))
 
@@ -22,53 +70,26 @@ if theme_toggle:
 else:
     st.session_state.theme = "light"
 
-# --- Application du style selon le thème ---
 if st.session_state.theme == "dark":
     st.markdown("""
     <style>
-        body {
-            background-color: #121212;
-            color: #F1F1F1;
-        }
-        .stApp {
-            background-color: #121212;
-            color: #F1F1F1;
-        }
-        .css-1d391kg, .css-1cpxqw2 {
-            background-color: #1F1F1F;
-            border-radius: 10px;
-            padding: 15px;
-        }
-        button {
-            background-color: #2980b9;
-            color: white;
-        }
+        body {background-color: #121212; color: #F1F1F1;}
+        .stApp {background-color: #121212; color: #F1F1F1;}
+        .css-1d391kg, .css-1cpxqw2 {background-color: #1F1F1F; border-radius: 10px; padding: 15px;}
+        button {background-color: #2980b9; color: white;}
     </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
     <style>
-        body {
-            background-color: #FFFFFF;
-            color: #000000;
-        }
-        .stApp {
-            background-color: #FFFFFF;
-            color: #000000;
-        }
-        .css-1d391kg, .css-1cpxqw2 {
-            background-color: #F9F9F9;
-            border-radius: 10px;
-            padding: 15px;
-        }
-        button {
-            background-color: #3498db;
-            color: white;
-        }
+        body {background-color: #FFFFFF; color: #000000;}
+        .stApp {background-color: #FFFFFF; color: #000000;}
+        .css-1d391kg, .css-1cpxqw2 {background-color: #F9F9F9; border-radius: 10px; padding: 15px;}
+        button {background-color: #3498db; color: white;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- Configuration des clés API ---
+# --- Configuration OpenAI et Airtable ---
 airtable_api_key = st.secrets["airtable"]["api_key"] if "airtable" in st.secrets else os.getenv("AIRTABLE_API_KEY")
 airtable_base_id = st.secrets["airtable"]["base_id"] if "airtable" in st.secrets else os.getenv("AIRTABLE_BASE_ID")
 airtable_table_name = st.secrets["airtable"].get("table_name", "Prompts") if "airtable" in st.secrets else os.getenv("AIRTABLE_TABLE_NAME")
@@ -79,25 +100,14 @@ client = openai.OpenAI(api_key=openai.api_key)
 # --- Fonctions Airtable ---
 def save_prompt_to_airtable(prompt_text):
     url = f"https://api.airtable.com/v0/{airtable_base_id}/{airtable_table_name}"
-    headers = {
-        "Authorization": f"Bearer {airtable_api_key}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "fields": {
-            "PromptText": prompt_text,
-            "Timestamp": datetime.datetime.now().isoformat()
-        }
-    }
+    headers = {"Authorization": f"Bearer {airtable_api_key}", "Content-Type": "application/json"}
+    data = {"fields": {"PromptText": prompt_text, "Timestamp": datetime.datetime.now().isoformat()}}
     response = requests.post(url, headers=headers, json=data)
     return response.status_code == 200
 
 def load_prompts_from_airtable():
     url = f"https://api.airtable.com/v0/{airtable_base_id}/{airtable_table_name}?sort[0][field]=Timestamp&sort[0][direction]=asc"
-    headers = {
-        "Authorization": f"Bearer {airtable_api_key}",
-        "Content-Type": "application/json"
-    }
+    headers = {"Authorization": f"Bearer {airtable_api_key}", "Content-Type": "application/json"}
     response = requests.get(url, headers=headers)
     prompts = []
     if response.status_code == 200:
@@ -106,187 +116,66 @@ def load_prompts_from_airtable():
             prompts.append(record["fields"].get("PromptText", ""))
     return prompts
 
-# --- Interface utilisateur ---
-st.title("POC SaaS : Générateur et Sélectionneur intelligent de KPIs 📊")
+# --- Fonctions Excel VBA ---
+def generate_vba_code_from_kpis(selected_kpis):
+    vba_code = "Sub CreerDashboard()\n\n"
+    vba_code += "    Dim wsData As Worksheet\n"
+    vba_code += "    Dim wsPivot As Worksheet\n"
+    vba_code += "    Dim pvtCache As PivotCache\n"
+    vba_code += "    Dim pvt As PivotTable\n"
+    vba_code += "    Dim chartObj As ChartObject\n\n"
+    vba_code += "    Set wsData = ThisWorkbook.Sheets(\"Données\")\n"
+    vba_code += "    Set wsPivot = ThisWorkbook.Sheets.Add\n"
+    vba_code += "    wsPivot.Name = \"Dashboard\"\n\n"
+    vba_code += "    Set pvtCache = ThisWorkbook.PivotCaches.Create(SourceType:=xlDatabase, SourceData:=wsData.UsedRange)\n\n"
 
-if "dashboard_ready" not in st.session_state:
-    st.session_state.dashboard_ready = False
+    for idx, kpi in enumerate(selected_kpis, 1):
+        pivot_name = f"TCD_KPI_{idx}"
+        chart_title = f"KPI {idx} - {kpi.splitlines()[0][:30]}"
+        
+        vba_code += f"    ' --- {chart_title} ---\n"
+        vba_code += f"    Set pvt = pvtCache.CreatePivotTable(TableDestination:=wsPivot.Cells({3 + idx * 15}, 1), TableName:=\"{pivot_name}\")\n"
+        vba_code += f"    Set chartObj = wsPivot.ChartObjects.Add(Left:=300, Width:=400, Top:={50 + idx * 300}, Height:=250)\n"
+        vba_code += f"    With chartObj.Chart\n"
+        vba_code += f"        .SetSourceData Source:=pvt.TableRange2\n"
+        vba_code += f"        .ChartType = xlColumnClustered\n"
+        vba_code += f"        .HasTitle = True\n"
+        vba_code += f"        .ChartTitle.Text = \"{chart_title}\"\n"
+        vba_code += f"    End With\n\n"
 
-uploaded_file = st.file_uploader("Charge ton fichier Excel ou CSV ici", type=["xlsx", "csv"])
+    vba_code += "End Sub\n"
+    return vba_code
 
-if uploaded_file:
-    if uploaded_file.name.endswith('.csv'):
-        df = pd.read_csv(uploaded_file)
-    else:
-        df = pd.read_excel(uploaded_file)
+def create_xlsm_dashboard(df, selected_kpis, output_xlsm_path):
+    temp_xlsx = output_xlsm_path.replace('.xlsm', '.xlsx')
+    df.to_excel(temp_xlsx, sheet_name='Données', index=False)
 
-    st.subheader("Aperçu des données")
-    st.dataframe(df.head(10))
+    app = xw.App(visible=False)
+    wb = app.books.open(temp_xlsx)
 
-    # --- Détection automatique du domaine ---
-    columns = [col.lower() for col in df.columns]
-    if any(x in columns for x in ["client", "produit", "vente", "chiffre d'affaires", "commande"]):
-        domaine_detecte = "commercial"
-    elif any(x in columns for x in ["email", "campagne", "clics", "impressions", "trafic"]):
-        domaine_detecte = "marketing"
-    elif any(x in columns for x in ["entrepôt", "stock", "livraison", "réception"]):
-        domaine_detecte = "logistique"
-    elif any(x in columns for x in ["patient", "date de naissance", "maladie", "décès"]):
-        domaine_detecte = "santé"
-    else:
-        domaine_detecte = "général"
+    wb.save(output_xlsm_path)
 
-    st.subheader(f"🔎 Domaine détecté automatiquement : **{domaine_detecte.capitalize()}**")
+    vba_code = generate_vba_code_from_kpis(selected_kpis)
+    wb.api.VBProject.VBComponents.Add(1).CodeModule.AddFromString(vba_code)
 
-    confirmation = st.radio("Est-ce correct ?", ("Oui", "Non"))
-
-    if confirmation == "Oui":
-        domaine = domaine_detecte
-    else:
-        domaine = st.selectbox(
-            "Quel est le bon domaine ?",
-            options=["commercial", "marketing", "logistique", "santé", "ressources humaines", "finance", "autre"]
-        )
-
-    if confirmation:
-        contexte = {
-            "commercial": "Données de ventes d'une entreprise commerciale.",
-            "marketing": "Données de campagnes marketing et publicitaires.",
-            "logistique": "Données de gestion de stocks, livraisons et entrepôts.",
-            "santé": "Données médicales concernant des patients.",
-            "ressources humaines": "Données de gestion RH et employés.",
-            "finance": "Données financières et comptables.",
-            "autre": "Données diverses sans domaine spécifique."
-        }.get(domaine, "Données diverses sans domaine spécifique.")
-
-        if st.button("Suggérer des KPIs 📈"):
-            with st.spinner("Analyse des données et historique en cours..."):
-                sample_data = df.sample(min(len(df), 20), random_state=42).to_csv(index=False)
-
-                historique = load_prompts_from_airtable()
-                historique_contextuel = "\n".join(historique[-5:])
-
-                prompt_final = f"""
-Voici un extrait de données :
-{sample_data}
-
-Contexte : {contexte}
-
-Historique des questions précédentes :
-{historique_contextuel}
-
-Propose 5 KPIs pertinents pour ces données :
-- un titre clair
-- une description
-- un exemple de valeur ou formule
-- un type de graphique adapté
+    open_macro = """
+Private Sub Workbook_Open()
+    Call CreerDashboard
+End Sub
 """
-                try:
-                    response = client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[{"role": "user", "content": prompt_final}],
-                        temperature=0.5,
-                        max_tokens=800
-                    )
-                    kpis = response.choices[0].message.content.split("\n\n")
-                    st.session_state.kpis = kpis
-                    st.success("✅ KPIs générés avec succès !")
-                except Exception as e:
-                    st.error(f"Erreur GPT : {e}")
+    wb.api.VBProject.VBComponents("ThisWorkbook").CodeModule.AddFromString(open_macro)
 
-# --- Interaction utilisateur ---
-if "kpis" in st.session_state:
-    st.subheader("✅ Sélectionne les KPIs pour ton Dashboard :")
-    selected_kpis = []
-    for kpi in st.session_state.kpis:
-        if st.checkbox(kpi):
-            selected_kpis.append(kpi)
+    wb.save()
+    wb.close()
+    app.quit()
 
-    if selected_kpis:
-        st.subheader("🚀 KPIs sélectionnés :")
-        for kpi in selected_kpis:
-            st.markdown(f"- {kpi}")
+    os.remove(temp_xlsx)
 
-        if st.button("✅ Valider ma sélection de KPIs"):
-            st.session_state.kpis_valides = selected_kpis
-            st.success("✅ Sélection validée ! Prêt pour l'aperçu du Dashboard.")
+# --- Interface de l'app ---
+st.set_page_config(page_title="SaaS KPI Generator", page_icon="🚀", layout="wide")
+page_accueil_premium()
 
-if "kpis_valides" in st.session_state:
-    if st.button("📊 Dashboard Preview"):
-        st.session_state.dashboard_ready = True
-        st.subheader("📑 Dashboard Preview élégant")
+uploaded_file = st.file_uploader("📂 Déposez un fichier Excel (.xlsx) ou CSV ici :", type=["xlsx", "csv"])
 
-        st.markdown("### Sommaire 📚")
-        for idx, kpi in enumerate(st.session_state.kpis_valides, 1):
-            st.markdown(f"- [{kpi.splitlines()[0]}](#kpi-{idx})")
+# (À continuer en dessous avec chargement fichier + génération KPIs comme avant...)
 
-        st.markdown("---")
-
-        cols = st.columns(3)
-        for idx, kpi in enumerate(st.session_state.kpis_valides):
-            with cols[idx % 3]:
-                st.markdown(f"<div style='background-color: #f0f2f6; padding: 15px; border-radius: 10px; margin-bottom: 20px;'>"
-                            f"<h4 id='kpi-{idx+1}' style='color: #2c3e50;'>📊 KPI {idx+1}</h4>"
-                            f"<p style='font-size: 15px; color: #34495e;'>{kpi}</p>"
-                            f"</div>", unsafe_allow_html=True)
-
-    if st.session_state.dashboard_ready:
-        st.subheader("📥 Exporte ton Dashboard Excel ici")
-
-        with st.spinner('🔄 Génération de ton fichier Excel... Patiente quelques secondes...'):
-            output = io.BytesIO()
-
-            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-                df.to_excel(writer, sheet_name='Données', index=False)
-                workbook = writer.book
-
-                header_format = workbook.add_format({
-                    'bold': True,
-                    'text_wrap': True,
-                    'valign': 'middle',
-                    'align': 'center',
-                    'bg_color': '#DCE6F1',
-                    'border': 1
-                })
-
-                cell_format = workbook.add_format({
-                    'valign': 'middle',
-                    'align': 'center',
-                    'border': 1
-                })
-
-                for idx, kpi in enumerate(st.session_state.kpis_valides, start=1):
-                    sheet_name = f"KPI_{idx}"
-                    worksheet = workbook.add_worksheet(sheet_name)
-
-                    worksheet.write('A1', df.columns[0], header_format)
-                    worksheet.write('B1', df.columns[1], header_format)
-
-                    for row in range(min(10, len(df))):
-                        worksheet.write(row + 1, 0, str(df.iloc[row, 0]), cell_format)
-                        worksheet.write(row + 1, 1, df.iloc[row, 1], cell_format)
-
-                    worksheet.set_column('A:A', 20)
-                    worksheet.set_column('B:B', 15)
-
-                    chart = workbook.add_chart({'type': 'column'})
-                    chart.add_series({
-                        'name':       f'KPI {idx}',
-                        'categories': f'={sheet_name}!$A$2:$A${min(11, len(df)+1)}',
-                        'values':     f'={sheet_name}!$B$2:$B${min(11, len(df)+1)}',
-                        'data_labels': {'value': True}
-                    })
-                    chart.set_title({'name': f'Dashboard KPI {idx}'})
-                    chart.set_x_axis({'name': df.columns[0]})
-                    chart.set_y_axis({'name': df.columns[1]})
-
-                    worksheet.insert_chart('D2', chart)
-
-        st.success("✅ Fichier Excel généré avec succès !")
-
-        st.download_button(
-            label="📥 Télécharger le Dashboard Excel Ultra-Pro",
-            data=output.getvalue(),
-            file_name="dashboard_kpis_ultra_premium.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
