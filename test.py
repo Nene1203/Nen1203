@@ -168,6 +168,50 @@ if "kpis_valides" in st.session_state:
                 st.markdown(kpi)
                 st.divider()
 
+        # --- Bouton Export Dashboard Excel Ultra-Pro ---
+        if st.button("📥 Export Dashboard en Excel"):
+            output = io.BytesIO()
+
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                # 1. Onglet 'Données' : toutes les données brutes
+                df.to_excel(writer, sheet_name='Données', index=False)
+                workbook = writer.book
+                worksheet_data = writer.sheets['Données']
+
+                # Définir la plage de données pour PivotTables
+                (max_row, max_col) = df.shape
+                data_range = f'Données!$A$1:${chr(65 + max_col - 1)}${max_row + 1}'
+
+                for idx, kpi in enumerate(st.session_state.kpis_valides, start=1):
+                    pivot_sheet_name = f"KPI_{idx}"
+                    pivot_sheet = workbook.add_worksheet(pivot_sheet_name)
+
+                    # Ajouter la PivotTable
+                    workbook.add_pivot_table({
+                        'data': data_range,
+                        'rows': [0],
+                        'columns': [],
+                        'filters': [],
+                        'values': [{'field': 1, 'function': 'sum', 'name': 'Somme Valeur'}],
+                        'destination': f'{pivot_sheet_name}!A3'
+                    })
+
+                    # Ajouter un graphique croisé dynamique
+                    chart = workbook.add_chart({'type': 'column'})
+                    chart.add_series({
+                        'categories': f'={pivot_sheet_name}!$A$4:$A$10',
+                        'values':     f'={pivot_sheet_name}!$B$4:$B$10',
+                        'name':       f'KPI {idx}'
+                    })
+                    pivot_sheet.insert_chart('G3', chart)
+
+            st.download_button(
+                label="📥 Télécharger le Dashboard Excel Ultra-Pro",
+                data=output.getvalue(),
+                file_name="dashboard_kpis_pivot.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
     st.subheader("💬 Pose une nouvelle question à l'IA (améliorer / filtrer les KPIs) :")
     user_prompt = st.text_area("Ta question :")
 
