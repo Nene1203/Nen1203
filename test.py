@@ -74,7 +74,7 @@ End Sub
 openai.api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 client = openai.OpenAI(api_key=openai.api_key)
 
-# --- Airtable config ---
+# --- Airtable Config ---
 airtable_api_key = st.secrets["airtable"]["api_key"] if "airtable" in st.secrets else os.getenv("AIRTABLE_API_KEY")
 airtable_base_id = st.secrets["airtable"]["base_id"] if "airtable" in st.secrets else os.getenv("AIRTABLE_BASE_ID")
 airtable_table_name = st.secrets["airtable"].get("table_name", "Projets") if "airtable" in st.secrets else os.getenv("AIRTABLE_TABLE_NAME")
@@ -97,21 +97,22 @@ def load_projects_from_airtable():
             projects.append({"Nom du projet": fields.get("ProjectName", ""), "Date": fields.get("DateCreated", ""), "Fichier": fields.get("FileName", "")})
     return pd.DataFrame(projects)
 
-# --- Pages principales ---
-def page_accueil_premium():
+# --- Pages ---
+def page_accueil_et_generation():
     st.title("🚀 SaaS KPI Generator")
     st.write("Automatisez vos dashboards comme jamais auparavant.")
     st.image("https://images.unsplash.com/photo-1612832021092-6cc8fb0b5fb3?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80", use_container_width=True)
 
-def page_generation_dashboard():
-    uploaded_file = st.file_uploader("📂 Déposez votre fichier Excel (.xlsx) ou CSV :", type=["xlsx", "csv"])
+    st.header("📂 Chargez votre fichier")
+    uploaded_file = st.file_uploader("Déposez un Excel (.xlsx) ou CSV :", type=["xlsx", "csv"])
+    
     if uploaded_file:
         df = pd.read_excel(uploaded_file) if uploaded_file.name.endswith('.xlsx') else pd.read_csv(uploaded_file)
-        st.subheader("Aperçu des données")
+        st.subheader("🔎 Aperçu des données")
         st.dataframe(df.head(10))
 
-        if st.button("Suggérer des KPIs"):
-            with st.spinner("Analyse intelligente..."):
+        if st.button("✨ Suggérer des KPIs"):
+            with st.spinner("Analyse IA en cours..."):
                 sample_data = df.sample(min(len(df), 20)).to_csv(index=False)
                 prompt = f"""Voici un échantillon de données :\n{sample_data}\nPropose 5 KPIs pertinents."""
                 response = client.chat.completions.create(
@@ -122,22 +123,22 @@ def page_generation_dashboard():
                 )
                 kpis = response.choices[0].message.content.split("\n\n")
                 st.session_state.kpis = kpis
-                st.success("✅ KPIs générés !")
+                st.success("✅ KPIs générés avec succès !")
 
         if "kpis" in st.session_state:
-            st.subheader("Sélectionne les KPIs pour ton Dashboard")
+            st.subheader("📊 Sélectionnez vos KPIs")
             selected_kpis = []
             for kpi in st.session_state.kpis:
                 if st.checkbox(kpi):
                     selected_kpis.append(kpi)
 
-            if selected_kpis and st.button("Exporter mon Dashboard"):
-                output_path = "dashboard_auto.xlsx"
+            if selected_kpis and st.button("📥 Exporter Dashboard Excel"):
+                output_path = "dashboard_auto.xlsm"
                 create_xlsm_dashboard(df, selected_kpis, output_path)
                 save_project_to_airtable("Projet_" + datetime.datetime.now().strftime("%Y%m%d_%H%M"), output_path)
                 with open(output_path, "rb") as file:
                     st.download_button(
-                        label="📥 Télécharger Dashboard Excel",
+                        label="📥 Télécharger le Dashboard Excel",
                         data=file,
                         file_name="dashboard_kpi_ultra.xlsm",
                         mime="application/vnd.ms-excel.sheet.macroEnabled.12"
@@ -151,17 +152,15 @@ def page_historique_projets():
     else:
         st.info("Aucun projet sauvegardé pour le moment.")
 
-# --- Barre de navigation ---
+# --- Navigation ---
 page = st.sidebar.selectbox(
     "Navigation",
-    ("🏠 Accueil", "🛠️ Générer Dashboard", "📚 Historique des Projets")
+    ("🏠 Accueil & Génération", "📚 Historique des Projets")
 )
 
 # --- Routing ---
-if page == "🏠 Accueil":
-    page_accueil_premium()
-elif page == "🛠️ Générer Dashboard":
-    page_generation_dashboard()
+if page == "🏠 Accueil & Génération":
+    page_accueil_et_generation()
 elif page == "📚 Historique des Projets":
     page_historique_projets()
 
