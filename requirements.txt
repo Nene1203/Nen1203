@@ -5,3 +5,4 @@ xlsxwriter
 openpyxl
 tabulate
 python-dotenv
+xlwings
