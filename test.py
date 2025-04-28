@@ -8,6 +8,9 @@ import datetime
 import xlwings as xw
 from dotenv import load_dotenv
 
+# 🚨 Cette ligne doit être tout en haut (obligatoire Streamlit)
+st.set_page_config(page_title="SaaS KPI Generator", page_icon="🚀", layout="wide")
+
 # --- Animation subtile pour page d'accueil ---
 st.markdown("""
     <style>
@@ -171,11 +174,9 @@ End Sub
 
     os.remove(temp_xlsx)
 
-# --- Interface de l'app ---
-st.set_page_config(page_title="SaaS KPI Generator", page_icon="🚀", layout="wide")
+# --- Interface ---
 page_accueil_premium()
 
 uploaded_file = st.file_uploader("📂 Déposez un fichier Excel (.xlsx) ou CSV ici :", type=["xlsx", "csv"])
 
-# (À continuer en dessous avec chargement fichier + génération KPIs comme avant...)
-
+# À continuer ensuite avec l'upload, l'analyse, la génération de KPIs, l'export en XLSM...
